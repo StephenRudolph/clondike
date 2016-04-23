@@ -3,7 +3,10 @@
   :url "https://github.com/StephenRudolph/clondike"
   :license {:name "Eclipse Public License"
             :url "http://www.eclipse.org/legal/epl-v10.html"}
-  :dependencies [[org.clojure/clojure "1.8.0"] [com.rpl/specter "0.9.1"] [clojure-lanterna "0.9.4"]]
+  :dependencies [[org.clojure/clojure "1.8.0"]
+                 [com.rpl/specter "0.9.3"]
+                 [clojure-lanterna "0.9.4"]
+                 [com.stuartsierra/component "0.3.1"]]
   :main ^:skip-aot clondike.core
   :target-path "target/%s"
   :profiles {:uberjar {:aot :all}})
