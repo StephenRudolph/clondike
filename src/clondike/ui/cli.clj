@@ -19,19 +19,15 @@
 #_(def screen-size (ref [0 0]))
 
 (declare await-input)
-(declare draw-screen)
-(declare quit!)
-(declare screen)
 
-(def possible-moves (atom '()))
-(def selected-card (atom nil))
-(def selected-card-position (atom nil))
+#_(def selected-card (atom nil))
+#_(def selected-card-position (atom nil))
 
 #_(defn handle-resize [cols rows]
-  (dosync (ref-set screen-size [cols rows]))
-  (s/clear screen)
-  (draw-screen)
-  (s/redraw screen))
+    (dosync (ref-set screen-size [cols rows]))
+    (s/clear screen)
+    (draw-screen)
+    (s/redraw screen))
 
 #_(def screen (s/get-screen :auto {:cols 80 :rows 24 :resize-listener handle-resize}))
 
@@ -69,9 +65,9 @@
   (draw-box app 0 0 ((:screen-size app) 0) ((:screen-size app) 1) {}))
 
 (defn draw-commands [app]
-  (s/put-string screen 1 (dec ((:screen-size app) 1)) " F: Flip " {:fg :black :bg :white})
-  (s/put-string screen (- ((:screen-size app) 0) 23) (dec ((:screen-size app) 1)) " R: Redeal " {:fg :black :bg :white})
-  (s/put-string screen (- ((:screen-size app) 0) 10) (dec ((:screen-size app) 1)) " Q: Quit " {:fg :black :bg :white}))
+  (s/put-string (:screen app) 1 (dec ((:screen-size app) 1)) " F: Flip " {:fg :black :bg :white})
+  (s/put-string (:screen app) (- ((:screen-size app) 0) 23) (dec ((:screen-size app) 1)) " R: Redeal " {:fg :black :bg :white})
+  (s/put-string (:screen app) (- ((:screen-size app) 0) 10) (dec ((:screen-size app) 1)) " Q: Quit " {:fg :black :bg :white}))
 
 (defn get-card-label [card]
   (let [n (:value card)]
@@ -163,23 +159,23 @@
     (s/put-string (:screen app) (+ x 4) y (str top-right-corner) style))
   (+ x 5))
 
-(defn draw-board [app]
-  )
+(defn draw-board [_])
 
 (defn draw-stock [app x]
   (let [stock (:stock (:game-state app))]
-  (if (empty? stock)
-    0
-    (if (> x 2)
-      (let [top 1]
-        (dotimes [i (count stock)]
-          (draw-card-right-edge app {:flipped false} (+ i x) top))
-        (count stock))
-      (let [top 1
-            extra-left (draw-card app (peek stock) x top)]
-        (dotimes [i (dec (count stock))]
-          (draw-card-right-edge app {:flipped false} (+ i extra-left) top))
-        (+ extra-left (dec (count stock))))))))
+    (if (empty? stock)
+      0
+      (if (> x 2)
+        (let [top 1]
+          (dotimes [i (count stock)]
+            (draw-card-right-edge app {:flipped false} (+ i x) top))
+          (count stock))
+        (let [top 1
+              extra-left (draw-card app (peek stock) x top)]
+          (dotimes [i (dec (count stock))]
+            (draw-card-right-edge app {:flipped false} (+ i extra-left) top))
+          (+ extra-left (dec (count stock))))))))
+
 
 (defn draw-waste-recur [app x y shown-waste hidden-waste]
   (if (empty? shown-waste)
@@ -198,23 +194,24 @@
                         (pop shown-waste)
                         hidden-waste))))
 
-(defn draw-waste [app]
-  (let [[shown-waste hidden-waste] (l/queue-split-at 3 (:waste (:game-state app)))
-        top 1
-        left (if (empty? shown-waste)
-               2
-               (do
-                 (reset! card-positions (assoc @card-positions :waste [2 top]))
-                 (draw-card app (peek shown-waste) 2 top)))]
-    (draw-waste-recur app left top (pop shown-waste) hidden-waste)
-    (+ left (* 3 (count (pop shown-waste))) (count hidden-waste))))
+(defn draw-waste
+  ([app]
+   (let [[shown-waste hidden-waste] (l/queue-split-at 3 (:waste (:game-state app)))
+         top 1]
+     (if (empty? shown-waste)
+       (draw-waste app shown-waste hidden-waste top 2)
+       (let [updated-app (assoc app :card-positions (assoc (:card-positions app) :waste [2 top]))]
+         (draw-waste updated-app shown-waste hidden-waste top (draw-card updated-app (peek shown-waste) 2 top))))))
+  ([app shown-waste hidden-waste top left]
+   (draw-waste-recur app left top (pop shown-waste) hidden-waste)
+   (+ left (* 3 (count (pop shown-waste))) (count hidden-waste))))
 
 (defn draw-foundations [app]
   (let [foundations (:foundations (:game-state app))]
-  (draw-card app (peek (:spades foundations)) (:spades (:card-positions app)))
-  (draw-card app (peek (:hearts foundations)) (:hearts (:card-positions app)))
-  (draw-card app (peek (:clubs foundations)) (:clubs (:card-positions app)))
-  (draw-card app (peek (:diamonds foundations)) (:diamonds (:card-positions app)))))
+    (draw-card app (peek (:spades foundations)) (:spades (:card-positions app)))
+    (draw-card app (peek (:hearts foundations)) (:hearts (:card-positions app)))
+    (draw-card app (peek (:clubs foundations)) (:clubs (:card-positions app)))
+    (draw-card app (peek (:diamonds foundations)) (:diamonds (:card-positions app)))))
 
 (defn draw-tableau-recur [app tableau current-index]
   (if (>= current-index (count tableau))
@@ -225,16 +222,16 @@
       (dotimes [i (dec (count cards))]
         (draw-card-top-edge app (nth cards i) left (+ i 6)))
       (if (not (empty? cards))
-        (do
-          (reset! card-positions (assoc @card-positions current-index [left last-top]))
-          (draw-card app (last cards) left last-top)))
-      (draw-tableau-recur app tableau (inc current-index)))))
+        (let [updated-app (assoc app :card-positions (assoc (:card-positions app) current-index [left last-top]))]
+          (draw-card updated-app (last cards) left last-top)
+          (draw-tableau-recur updated-app tableau (inc current-index)))
+        (draw-tableau-recur app tableau (inc current-index))))))
 
 (defn draw-tableau [app]
-  (draw-tableau-recur app (:tableau game-state) 0))
+  (draw-tableau-recur app (:tableau (:game-state app)) 0))
 
 (defn draw-screen [app]
-  (s/clear screen)
+  (s/clear (:screen app))
   (draw-border app)
   (draw-commands app)
   (draw-board app)
@@ -245,48 +242,59 @@
 
 (defn handle-move [app move]
   (if (not (nil? move))
-    (do
-      (reset! game-state (l/apply-move @game-state move))
-      (reset! possible-moves (l/possible-moves @game-state))
-      (draw-screen app)
-      (s/redraw screen)
-      (await-input app))))
+    (let [updated-game-state (l/apply-move (:game-state app) move)
+          updated-app (assoc app
+                        :game-state updated-game-state
+                        :possible-moves (l/possible-moves updated-game-state))]
+      (draw-screen updated-app)
+      (s/redraw (:screen updated-app))
+      (await-input updated-app))
+    (await-input app)))
 
-(defn redeal! [app]
-  (reset! game-state (l/make-game-state (l/generate-shuffled-deck)))
-  (reset! possible-moves (l/possible-moves @game-state))
-  (draw-screen app)
-  (s/redraw screen)
-  (await-input app))
+(defn redeal [app]
+  (let [new-game-state (l/make-game-state (l/generate-shuffled-deck))
+        updated-app (assoc app
+                      :game-state new-game-state
+                      :possible-moves (l/possible-moves new-game-state))]
+    (draw-screen updated-app)
+    (s/redraw (:screen updated-app))
+    (await-input updated-app)))
 
 (defn get-stock-waste-move [app]
   (first (filter #(and (= :stock (:from %1)) (= :waste (:to %1))) (:possible-moves app))))
 
+(defn quit [app]
+  (component/stop app))
+
 (defn await-input [app]
   (let [key (s/get-key-blocking (:screen app))]
-    (case key \q (quit!)
-              \Q (quit!)
+    (case key \q (quit app)
+              \Q (quit app)
               \f (handle-move app (get-stock-waste-move app))
               \F (handle-move app (get-stock-waste-move app))
-              \r (redeal!)
-              \R (redeal!)
+              \r (redeal app)
+              \R (redeal app)
               (await-input app))))
 
-(defrecord App []
+(defrecord App [screen]
   component/Lifecycle
   (start [app]
+    (s/start screen)
     (let [game-state (l/make-game-state (l/generate-shuffled-deck))
-          screen (s/get-screen :auto {:cols 80 :rows 24})
           app-with-state
-            (assoc app
-              :game-state game-state
-              :possible-moves (l/possible-moves game-state)
-              :screen screen
-              :screen-size [0 0]
-              :card-positions {:spades [37 1] :hearts [44 1] :clubs [51 1] :diamonds [58 1]})]
-        (s/start app-with-state)
-        (draw-screen app-with-state)
-        (s/redraw app-with-state)
-        (await-input app-with-state)))
-  (stop [app]
-    (s/stop (:screen app))))
+          (assoc app
+            :game-state game-state
+            :possible-moves (l/possible-moves game-state)
+            :screen screen
+            :screen-size (s/get-size screen)
+            :card-positions {:spades [37 1] :hearts [44 1] :clubs [51 1] :diamonds [58 1]})]
+      (draw-screen app-with-state)
+      (s/redraw screen)
+      (await-input app-with-state)
+      app-with-state))
+  (stop [_]
+    (s/stop screen)))
+
+(defn launch! []
+  (let [app (map->App {:screen (s/get-screen :auto {:cols 80 :rows 24})})]
+    (component/stop (component/start app))))
