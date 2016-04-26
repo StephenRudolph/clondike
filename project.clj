@@ -6,7 +6,9 @@
   :dependencies [[org.clojure/clojure "1.8.0"]
                  [com.rpl/specter "0.9.3"]
                  [clojure-lanterna "0.9.4"]
-                 [com.stuartsierra/component "0.3.1"]]
+                 [com.stuartsierra/component "0.3.1"]
+                 [org.clojure/tools.namespace "0.2.11"]
+                 [org.clojure/core.async "0.2.374"]]
   :main ^:skip-aot clondike.core
   :target-path "target/%s"
   :profiles {:uberjar {:aot :all}})
