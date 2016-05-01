@@ -2,7 +2,8 @@
   (:require [clojure.core.async :refer (<!! close! thread)]
             [com.stuartsierra.component :as component]
             [clondike.game.logic :as l]
-            [clondike.ui.cli :as ui]))
+            [clondike.ui.cli :as ui]
+            [com.rpl.specter :as s]))
 
 (declare redraw)
 
@@ -30,17 +31,36 @@
 (defn redraw [app]
   (let [screen (:screen app)]
     (ui/draw-screen screen)
-    (ui/draw-game-state screen (:game-state app) (:possible-moves app))))
+    (ui/draw-game-state screen (:game-state app) (:possible-moves app)))
+  app)
+
+(defn unhighlight-all [app]
+  (->> (s/transform [:game-state :stock s/ALL] #(dissoc % :highlighted) app)
+       (s/transform [:game-state :waste s/ALL] #(dissoc % :highlighted))
+       (s/transform [:game-state :tableau s/ALL s/ALL] #(dissoc % :highlighted))
+       (s/transform [:game-state :foundation s/ALL s/ALL] #(dissoc % :highlighted))))
+
+(defn highlight-flipped [app]
+  (let [waste (s/select [:game-state :waste] app)]
+    (if (empty? waste)
+      app
+      (s/transform [:game-state :waste s/FIRST] #(assoc % :highlighted true) app))))
 
 (defn await-input [app]
   (let [command (<!! (:command-channel app))]
     (case command :quit (component/stop app)
-                  :flip (await-input (handle-move app (get-stock-waste-move (:possible-moves app))))
-                  :redeal (await-input (redeal app))
+                  :flip (-> (handle-move app (get-stock-waste-move (:possible-moves app)))
+                            #_(unhighlight-all)
+                            #_(highlight-flipped)
+                            (redraw)
+                            (await-input))
+                  :redeal (-> (redeal app)
+                              (await-input))
                   :toggle-select-current (await-input app)
                   :highlight-previous (await-input app)
                   :highlight-next (await-input app)
-                  :redraw (do (redraw app) (await-input app))
+                  :redraw (-> (redraw app)
+                              (await-input))
                   (await-input app))))
 
 (defrecord App []
@@ -50,9 +70,7 @@
           app-with-state
           (assoc app
             :game-state game-state
-            :possible-moves (l/possible-moves game-state)
-            :highlighted-card nil
-            :selected-card nil)]
+            :possible-moves (l/possible-moves game-state))]
       (redraw app-with-state)
       (thread (await-input app-with-state))
       app-with-state))

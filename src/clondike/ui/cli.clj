@@ -69,8 +69,13 @@
   (if (empty? (filter #(= card (:card %1)) possible-moves))
     {}
     (if (contains? l/red-suits (:suit card))
-      {:fg :black :bg :red}
-      {:fg :black :bg :blue})))
+      {:fg :magenta}
+      {:fg :cyan})))
+
+(defn highlight-card [card]
+  (if (contains? card :highlighted)
+    {:bg :yellow}
+    {}))
 
 (defn get-style [possible-moves card]
   (if (nil? card)
@@ -78,7 +83,8 @@
     (if (not (:flipped card))
       {:fg :green}
       (merge (get-suit-style (:suit card))
-             (highlight-potential-move-source possible-moves card)))))
+             (highlight-potential-move-source possible-moves card)
+             (highlight-card card)))))
 
 (defn draw-card
   ([screen possible-moves card pos]
