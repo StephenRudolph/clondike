@@ -22,6 +22,7 @@
                   tableau                                   ;; PersistentVector of PersistentLists
                   foundation])
 
+;; TODO: consolidate by using Specter paths
 (defrecord Move [card from to])
 
 (defn make-queue [coll]
@@ -59,15 +60,15 @@
     (let [column-count (count (get tableau current-index))]
       (if (<= column-count current-index)
         (make-tableau-recur
-          (pop cards)
+          (next cards)
           (assoc
             tableau
             current-index
             (conj
               (get tableau current-index)
               (if (= column-count current-index)
-                (flip-card (peek cards) true)
-                (flip-card (peek cards) false))))
+                (flip-card (first cards) true)
+                (flip-card (first cards) false))))
           (inc current-index))
         (make-tableau-recur cards tableau (inc current-index))))))
 
@@ -84,7 +85,7 @@
 (defn queue-split-at-recur [n a b]
   (if (or (zero? n) (empty? b))
     [a b]
-    (queue-split-at-recur (dec n) (conj a (peek b)) (pop b))))
+    (queue-split-at-recur (dec n) (conj a (first b)) (next b))))
 
 (defn queue-split-at [n l]
   (queue-split-at-recur n clojure.lang.PersistentQueue/EMPTY l))
@@ -119,7 +120,7 @@
         (= (:value card) 13))                               ;; 13 = King
       (and
         (not (empty? tableau-stack))
-        (can-build? card (peek tableau-stack)))))
+        (can-build? card (first tableau-stack)))))
 
 (defn which-card-can-move-from-tableau-stack? [^Board board from to]
   (let [destination-stack (nth (:tableau board) to)
@@ -135,7 +136,7 @@
   (if (nil? card)
     false
     (let [foundation-top
-          (peek ((:suit card) (:foundations board)))]
+          (first ((:suit card) (:foundations board)))]
       (if (nil? foundation-top)
         (= (:value card) 1)                                 ;; 1 = Ace
         (= (:value card) (inc (:value foundation-top)))))))
@@ -143,7 +144,7 @@
 (defn can-move-foundation-to-tableau-stack? [foundation tableau-stack]
   (and (not (empty? foundation))
        (not (empty? tableau-stack))
-       (can-build? (peek foundation) (peek tableau-stack))))
+       (can-build? (first foundation) (first tableau-stack))))
 
 (defn possible-stock-moves [^Board board]
   (if (or (not (empty? (:stock board)))
@@ -154,7 +155,7 @@
 (defn possible-waste-tableau-moves [^Board board]
   (if (empty? (:waste board))
     '()
-    (let [top-card (peek (:waste board))]
+    (let [top-card (first (:waste board))]
       (for [n (range (count (:tableau board)))]
         (if (can-move-card-to-tableau-stack?
               top-card
@@ -165,8 +166,8 @@
 (defn possible-waste-foundation-moves [^Board board]
   (if (and
         (not (empty? (:waste board)))
-        (can-move-to-foundation? board (peek (:waste board))))
-    (list (->Move (peek (:waste board)) :waste (:suit (peek (:waste board)))))
+        (can-move-to-foundation? board (first (:waste board))))
+    (list (->Move (first (:waste board)) :waste (:suit (first (:waste board)))))
     nil))
 
 (defn possible-tableau-stack-moves [^Board board]
@@ -187,7 +188,7 @@
 
 (defn possible-tableau-foundation-moves [^Board board]
   (for [from (range (count (:tableau board)))]
-    (let [card (peek (nth (:tableau board) from))]
+    (let [card (first (nth (:tableau board) from))]
       (if (can-move-to-foundation? board card)
         (->Move card from (:suit card))
         nil))))
@@ -216,8 +217,8 @@
   (if (zero? number-of-cards)
     [stock waste]
     (deal-from-stock-to-waste
-      (pop stock)
-      (conj waste (flip-card (peek stock) true))
+      (next stock)
+      (conj waste (flip-card (first stock) true))
       (dec number-of-cards))))
 
 ;; Take three cards from the stock and move them to the waste
@@ -237,9 +238,9 @@
 
 ;; Move the top waste card to a specific column in the tableau
 (defn move-waste-to-tableau [^Board board n]
-  (let [card (peek (:waste board))]
+  (let [card (first (:waste board))]
     (assoc board
-      :waste (pop (:waste board))
+      :waste (next (:waste board))
       :tableau (assoc
                  (:tableau board)
                  n
@@ -247,10 +248,10 @@
 
 ;; TODO Add additional board checks
 (defn move-waste-to-foundation [^Board board]
-  (let [card (peek (:waste board))]
+  (let [card (first (:waste board))]
     (let [foundation ((:suit card) (:foundations board))]
       (assoc board
-        :waste (pop (:waste board))
+        :waste (next (:waste board))
         :foundations (assoc
                        (:foundations board)
                        (:suit card)
@@ -259,9 +260,9 @@
 (defn auto-flip-tableau-stack [tableau-stack]
   (if (or
         (zero? (count tableau-stack))
-        (:flipped (peek tableau-stack)))
+        (:flipped (first tableau-stack)))
     tableau-stack
-    (conj (pop tableau-stack) (flip-card (peek tableau-stack) true))))
+    (conj (next tableau-stack) (flip-card (first tableau-stack) true))))
 
 (defn move-tableau-stack [^Board board ^Move move]
   "Move from one tableau stack to another"
@@ -286,7 +287,7 @@
             (recur (dec n))))))))
 
 (defn move-from-tableau-to-foundation [^Board board from]
-  (let [tableau-card (peek (nth (:tableau board) from))]
+  (let [tableau-card (first (nth (:tableau board) from))]
     (if (can-move-to-foundation? board tableau-card)
       (assoc board
         :foundations
@@ -299,7 +300,7 @@
         (assoc (:tableau board)
           from
           (auto-flip-tableau-stack
-            (pop (nth (:tableau board) from)))))
+            (next (nth (:tableau board) from)))))
       board)))
 
 (defn move-foundation-to-tableau [^Board board ^Move move]
@@ -312,11 +313,11 @@
         :tableau (assoc
                    (:tableau board)
                    to
-                   (conj tableau-stack (peek foundation)))
+                   (conj tableau-stack (first foundation)))
         :foundations (assoc
                        (:foundations board)
                        from
-                       (pop foundation)))
+                       (next foundation)))
       board)))
 
 (defn apply-tableau-stack-move [^Board board ^Move move]
