@@ -11,6 +11,8 @@ Clondike is also intended as a platform for analyzing the game of Klondike.
 
 Clondike is written in Clojure, hence the name :).
 
+![Image Screenshot](screenshot.png)
+
 ## Usage
 
     $ java -jar clondike-0.1.0-standalone.jar [-t]
