@@ -1,36 +1,43 @@
 # clondike
 
-FIXME: description
+Clondike sets out to solve three deficits with the standard Klondike games available in Windows and Gnome:
 
-## Installation
+* Command-line interface
+* All games are guaranteed to be winnable
+    * You are notified when the game is no longer winnable
+* Cross platform compatible
 
-Download from http://example.com/FIXME.
+Clondike is also intended as a platform for analyzing the game of Klondike.
+
+Clondike is written in Clojure, hence the name :).
 
 ## Usage
 
-FIXME: explanation
-
-    $ java -jar clondike-0.1.0-standalone.jar [args]
+    $ java -jar clondike-0.1.0-standalone.jar [-t]
 
 ## Options
 
-FIXME: listing of options this app accepts.
+* -t: force native terminal mode
 
-## Examples
+## Planned Features
 
-...
-
-### Bugs
-
-...
-
-### Any Other Sections
-### That You Think
-### Might be Useful
+* Allow card moves (yeah, pretty major)
+* Only present winnable games
+* Notify player when game is won or unwinnable
+    * Allow user to 'autocomplete' trvially winnable games
+* More extensive use of Specter to simplify access to the game state
+* Graceful handling of large tableau stacks on short vertical terminal windows
+* Upgrade to Lanterna 3.0 when it becomes available
+* Provide option for move 'hints' based on possible solutions
+    * Full auto-play mode - watch the computer play
+* Allow unlimited undo/redo
+* Enable testing of heuristic strategies for gameplay
+* Add machine learning capabilities
+    * Watch the machine learning algorithm play
+* ClojureScript UI
 
 ## License
 
-Copyright © 2016 FIXME
+Copyright © 2016 Stephen Rudolph
 
-Distributed under the Eclipse Public License either version 1.0 or (at
-your option) any later version.
+Distributed under the MIT License

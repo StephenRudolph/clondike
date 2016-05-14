@@ -250,24 +250,24 @@
   (s/redraw (:screen cli)))
 
 (defn await-input [command-channel screen]
-  (let [key (s/get-key-blocking screen)]
+  (loop [key (s/get-key-blocking screen)]
     (case key \q (do (>!! command-channel :quit))
               \Q (do (>!! command-channel :quit))
-              \f (do (>!! command-channel :flip) (await-input command-channel screen))
-              \F (do (>!! command-channel :flip) (await-input command-channel screen))
-              \r (do (>!! command-channel :redeal) (await-input command-channel screen))
-              \R (do (>!! command-channel :redeal) (await-input command-channel screen))
-              :enter (do (>!! command-channel :toggle-select-current) (await-input command-channel screen))
-              :left (do (>!! command-channel :highlight-previous) (await-input command-channel screen))
-              :right (do (>!! command-channel :highlight-next) (await-input command-channel screen))
-              (await-input command-channel screen))))
+              \f (do (>!! command-channel :flip) (recur (s/get-key-blocking screen)))
+              \F (do (>!! command-channel :flip) (recur (s/get-key-blocking screen)))
+              \r (do (>!! command-channel :redeal) (recur (s/get-key-blocking screen)))
+              \R (do (>!! command-channel :redeal) (recur (s/get-key-blocking screen)))
+              :enter (do (>!! command-channel :toggle-select-current) (recur (s/get-key-blocking screen)))
+              :left (do (>!! command-channel :highlight-previous) (recur (s/get-key-blocking screen)))
+              :right (do (>!! command-channel :highlight-next) (recur (s/get-key-blocking screen)))
+              (recur (s/get-key-blocking screen)))))
 
-(defrecord Screen [cols rows]
+(defrecord Screen [cols rows screen-type]
   component/Lifecycle
   (start [component]
-    (let [screen (s/get-screen :auto {:cols cols
-                                      :rows rows
-                                      :resize-listener #((constantly (>!! (:command-channel component) :redraw)) %1 %2)})]
+    (let [screen (s/get-screen screen-type {:cols cols
+                                            :rows rows
+                                            :resize-listener #((constantly (>!! (:command-channel component) :redraw)) %1 %2)})]
       (s/start screen)
       (assoc component :screen screen
                        :await-input-thread-channel (thread (await-input (:command-channel component) screen))

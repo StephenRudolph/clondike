@@ -1,5 +1,5 @@
 (ns clondike.app
-  (:require [clojure.core.async :refer (<!! close! thread)]
+  (:require [clojure.core.async :refer (<!! >!! close! thread)]
             [com.stuartsierra.component :as component]
             [clondike.game.logic :as l]
             [clondike.ui.cli :as ui]
@@ -8,18 +8,18 @@
 (declare redraw)
 
 (def highlightable-paths
-  [[:game-state :waste s/FIRST]
-   [:game-state :tableau s/FIRST s/FIRST]
-   [:game-state :tableau (s/srange 1 2) s/FIRST s/FIRST]
-   [:game-state :tableau (s/srange 2 3) s/FIRST s/FIRST]
-   [:game-state :tableau (s/srange 3 4) s/FIRST s/FIRST]
-   [:game-state :tableau (s/srange 4 5) s/FIRST s/FIRST]
-   [:game-state :tableau (s/srange 5 6) s/FIRST s/FIRST]
-   [:game-state :tableau (s/srange 6 7) s/FIRST s/FIRST]
-   [:game-state :foundations :spades s/FIRST]
-   [:game-state :foundations :hearts s/FIRST]
-   [:game-state :foundations :clubs s/FIRST]
-   [:game-state :foundations :diamonds s/FIRST]])
+  [(s/comp-paths :game-state :waste s/FIRST)
+   (s/comp-paths :game-state :tableau s/FIRST s/FIRST)
+   (s/comp-paths :game-state :tableau (s/srange 1 2) s/FIRST s/FIRST)
+   (s/comp-paths :game-state :tableau (s/srange 2 3) s/FIRST s/FIRST)
+   (s/comp-paths :game-state :tableau (s/srange 3 4) s/FIRST s/FIRST)
+   (s/comp-paths :game-state :tableau (s/srange 4 5) s/FIRST s/FIRST)
+   (s/comp-paths :game-state :tableau (s/srange 5 6) s/FIRST s/FIRST)
+   (s/comp-paths :game-state :tableau (s/srange 6 7) s/FIRST s/FIRST)
+   (s/comp-paths :game-state :foundations :spades s/FIRST)
+   (s/comp-paths :game-state :foundations :hearts s/FIRST)
+   (s/comp-paths :game-state :foundations :clubs s/FIRST)
+   (s/comp-paths :game-state :foundations :diamonds s/FIRST)])
 
 (defn handle-move [app move]
   (if (not (nil? move))
@@ -96,33 +96,34 @@
       (s/transform next-path #(assoc % :highlighted true) decremented))))
 
 (defn await-input [app]
-  (let [command (<!! (:command-channel app))]
-    (case command :quit (component/stop app)
-                  :flip (-> (handle-move app (get-stock-waste-move (:possible-moves app)))
+  (loop [current-app app
+         command (<!! (:command-channel app))]
+    (case command :quit (component/stop current-app)
+                  :flip (-> (handle-move current-app (get-stock-waste-move (:possible-moves current-app)))
                             (unhighlight-all)
                             (unselect-all)
                             (highlight-flipped)
                             (reset-highlighted-path-index)
                             (redraw)
-                            (await-input))
-                  :redeal (-> (redeal app)
-                              (await-input))
-                  :toggle-select-current (-> (toggle-select-on-highlighted app)
+                            (recur (<!! (:command-channel current-app))))
+                  :redeal (-> (redeal current-app)
+                              (recur (<!! (:command-channel current-app))))
+                  :toggle-select-current (-> (toggle-select-on-highlighted current-app)
                                              (redraw)
-                                             (await-input))
-                  :highlight-previous (-> (unhighlight-all app)
+                                             (recur (<!! (:command-channel current-app))))
+                  :highlight-previous (-> (unhighlight-all current-app)
                                           (highlight-previous)
                                           (redraw)
-                                          (await-input))
-                  :highlight-next (-> (unhighlight-all app)
+                                          (recur (<!! (:command-channel current-app))))
+                  :highlight-next (-> (unhighlight-all current-app)
                                       (highlight-next)
                                       (redraw)
-                                      (await-input))
-                  :redraw (-> (redraw app)
-                              (await-input))
-                  (await-input app))))
+                                      (recur (<!! (:command-channel current-app))))
+                  :redraw (-> (redraw current-app)
+                              (recur (<!! (:command-channel current-app))))
+                  (recur current-app (<!! (:command-channel current-app))))))
 
-(defrecord App []
+(defrecord App [stop-chan]
   component/Lifecycle
   (start [app]
     (let [game-state (l/make-game-state (l/generate-shuffled-deck))
@@ -138,6 +139,7 @@
   (stop [app]
     (component/stop (:screen app))
     (close! (:command-channel app))
+    (>!! stop-chan :stop)
     (assoc app
       :game-state nil
       :possible-moves nil

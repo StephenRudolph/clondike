@@ -1,8 +1,8 @@
 (defproject clondike "0.1.0-SNAPSHOT"
-  :description "This project simulates Klondike solitaire in order to determine a good strategy for playing the game."
+  :description "This project is a smart, helpful, command-line Klondike solitaire implementation."
   :url "https://github.com/StephenRudolph/clondike"
-  :license {:name "Eclipse Public License"
-            :url "http://www.eclipse.org/legal/epl-v10.html"}
+  :license {:name "MIT License"
+            :url "https://opensource.org/licenses/MIT"}
   :dependencies [[org.clojure/clojure "1.8.0"]
                  [com.rpl/specter "0.10.0"]
                  [clojure-lanterna "0.9.4"]
